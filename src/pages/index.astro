@@ -1,0 +1,155 @@
+---
+/* EcoClima Costa Rica — Astro minimal + fetch vanilla a 4 APIs públicas sin key.
+   T4: Open-Meteo | T6: Geocoding + PokeAPI | T7: JSONPlaceholder */
+const SJO_LAT = 9.93;
+const SJO_LON = -84.09;
+---
+
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EcoClima Costa Rica — APIs públicas</title>
+  <meta name="description" content="Mini App CENFOTEC Habilidades Transversales: clima SJO con Open-Meteo + Geocoding + JSONPlaceholder + PokeAPI." />
+  <style>
+    :root { color-scheme: light dark; --azul:#1F4E79; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin:0; background:#f4f6fa; color:#1a1a1a; }
+    header { background: var(--azul); color:#fff; padding:1.2rem; text-align:center; }
+    header a { color:#ffe082; }
+    main { max-width: 960px; margin: 0 auto; padding: 1rem; display:grid; gap:1rem; }
+    .card { background:#fff; border-radius:12px; padding:1rem 1.2rem; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .grid { display:grid; gap:1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    button { background:var(--azul); color:#fff; border:0; border-radius:8px; padding:.5rem .9rem; cursor:pointer; }
+    input { padding:.5rem; border-radius:8px; border:1px solid #ccc; width:70%; }
+    .muted { color:#555; font-size:.9rem; }
+    .error { color:#b00020; font-weight:bold; }
+    .ok { color:#0a7a2e; font-weight:bold; }
+    footer { text-align:center; padding:1.5rem; color:#555; }
+    ul { padding-left:1.2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌤️ EcoClima Costa Rica</h1>
+    <p>Mini App CENFOTEC · Habilidades Transversales · Derek Leiva</p>
+    <p>
+      <a href="https://github.com/electromilitary45/ecoclima-cr" target="_blank" rel="noopener">Repo</a> ·
+      <a href="https://github.com/users/electromilitary45/projects/19" target="_blank" rel="noopener">Kanban público</a>
+    </p>
+  </header>
+
+  <main>
+    <section class="card" id="clima">
+      <h2>1. Clima actual San José (Open-Meteo)</h2>
+      <p class="muted">GET sin key · lat {SJO_LAT}, lon {SJO_LON} · timezone America/Costa_Rica</p>
+      <button id="btnClima">Cargar clima</button>
+      <div id="outClima"><p class="muted">Pulsa el botón (T4).</p></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>2. Buscador ciudades (Geocoding)</h2>
+        <input id="q" value="San Jose Costa Rica" />
+        <button id="btnGeo">Buscar</button>
+        <div id="outGeo"></div>
+      </section>
+
+      <section class="card">
+        <h2>3. Tareas mock (JSONPlaceholder)</h2>
+        <button id="btnTodos">Listar 5</button>
+        <button id="btnAdd">Crear demo</button>
+        <div id="outTodos"></div>
+        <p class="muted">POST/DELETE son simulados (no persisten) — T7.</p>
+      </section>
+
+      <section class="card">
+        <h2>4. Demo JSON anidado (PokeAPI)</h2>
+        <button id="btnPoke">Cargar Ditto</button>
+        <div id="outPoke"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Evidencia de aprendizaje</h2>
+      <ul>
+        <li>Abre DevTools → Network para ver los 4 <code>fetch</code> con status 200.</li>
+        <li>Desconecta internet y pulsa “Cargar clima” para ver el manejo de error (T4).</li>
+        <li>Cada bloque usa <code>async/await + try/catch</code> con estados carga/error.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    Astro minimal · output static · deploy GitHub Pages · <span id="year"></span>
+  </footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+$("year").textContent = new Date().getFullYear();
+
+// T4 — Open-Meteo
+$("btnClima").addEventListener("click", async () => {
+  const out = $("outClima");
+  out.innerHTML = "<p>Cargando…</p>";
+  try {
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=9.93&longitude=-84.09&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&timezone=America%2FCosta_Rica";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    out.innerHTML = `<p class="ok">✔ ${j.current.temperature_2m}°C · Humedad ${j.current.relative_humidity_2m}% · Viento ${j.current.wind_speed_10m} km/h · WMO ${j.current.weather_code}</p>
+    <p class="muted">${j.timezone} · ${j.current.time} · elev ${j.elevation} m</p>`;
+  } catch (e) {
+    out.innerHTML = `<p class="error">✖ Sin conexión o API caída: ${e.message}. Plan B: usar muestra guardada en docs/api-samples.md</p>`;
+  }
+});
+
+// T6a — Geocoding
+$("btnGeo").addEventListener("click", async () => {
+  const out = $("outGeo"); out.innerHTML = "<p>Cargando…</p>";
+  try {
+    const q = encodeURIComponent($("q").value);
+    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${q}&count=1&language=es&format=json`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if (!j.results?.length) { out.innerHTML = "<p>Sin resultados.</p>"; return; }
+    const c = j.results[0];
+    out.innerHTML = `<p class="ok">✔ ${c.name}, ${c.country} — lat ${c.latitude}, lon ${c.longitude}</p><p class="muted">tz ${c.timezone} · pob ${c.population ?? "—"}</p>`;
+  } catch (e) { out.innerHTML = `<p class="error">✖ ${e.message}</p>`; }
+});
+
+// T7 — JSONPlaceholder
+$("btnTodos").addEventListener("click", async () => {
+  const out = $("outTodos"); out.innerHTML = "<p>Cargando…</p>";
+  try {
+    const r = await fetch("https://jsonplaceholder.typicode.com/todos?_limit=5");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    out.innerHTML = "<ul>" + j.map(t => `<li>${t.completed ? "✅" : "⬜"} ${t.title}</li>`).join("") + "</ul>";
+  } catch (e) { out.innerHTML = `<p class="error">✖ ${e.message}</p>`; }
+});
+$("btnAdd").addEventListener("click", async () => {
+  const out = $("outTodos");
+  try {
+    const r = await fetch("https://jsonplaceholder.typicode.com/todos", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ title:"Revisar clima SJO", completed:false, userId:1 }) });
+    const j = await r.json();
+    out.innerHTML = `<p class="ok">✔ Demo creada (id simulado ${j.id}). No persiste — es mock.</p>`;
+  } catch (e) { out.innerHTML = `<p class="error">✖ ${e.message}</p>`; }
+});
+
+// T6b — PokeAPI
+$("btnPoke").addEventListener("click", async () => {
+  const out = $("outPoke"); out.innerHTML = "<p>Cargando…</p>";
+  try {
+    const r = await fetch("https://pokeapi.co/api/v2/pokemon/ditto");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    const tipos = j.types.map(t => t.type.name).join(", ");
+    out.innerHTML = `<p class="ok">✔ ${j.name} · tipos: ${tipos} · peso ${j.weight}</p><img src="${j.sprites.front_default}" alt="ditto" width="96" />`;
+  } catch (e) { out.innerHTML = `<p class="error">✖ ${e.message}</p>`; }
+});
+// autocarga clima al abrir (evidencia inmediata)
+$("btnClima").click();
+</script>
+</body>
+</html>
